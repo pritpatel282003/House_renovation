@@ -29,9 +29,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // Pick the best redesigned image: AI polished > overlay composite
+    const bestRedesignedUrl =
+      project.ai_designed_image_url ||
+      project.redesigned_image_url ||
+      null
+
+    console.log('[report] Building report for project:', projectId)
+    console.log('[report] original_image_url:', project.original_image_url)
+    console.log('[report] ai_designed_image_url:', project.ai_designed_image_url)
+    console.log('[report] redesigned_image_url:', project.redesigned_image_url)
+    console.log('[report] Using redesigned URL for report:', bestRedesignedUrl)
+
     const reportPayload = {
       ...project,
-      redesigned_image_url: project.ai_designed_image_url || project.redesigned_image_url,
+      original_image_url: project.original_image_url,
+      redesigned_image_url: bestRedesignedUrl,
     }
 
     const pyRes = await fetch(`${process.env.PYTHON_SERVICE_URL}/report`, {
@@ -45,6 +58,7 @@ export async function POST(request: Request) {
 
     if (!pyRes.ok) {
       const err = await pyRes.text()
+      console.error('[report] Python service error:', err)
       return NextResponse.json(
         { error: `Report generation failed: ${err}` },
         { status: 502 }
@@ -52,6 +66,7 @@ export async function POST(request: Request) {
     }
 
     const pdfBuffer = Buffer.from(await pyRes.arrayBuffer())
+    console.log('[report] PDF generated, size:', pdfBuffer.length, 'bytes')
 
     const serviceSupabase = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

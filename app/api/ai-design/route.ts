@@ -61,21 +61,18 @@ export async function POST(request: Request) {
 
     const result = await pyRes.json()
 
+    // Upload the material-overlay composite to Cloudinary
     const overlayBuffer = Buffer.from(result.overlay_image_base64, 'base64')
     const overlayUpload = await uploadToCloudinary(
       overlayBuffer,
       'renovation/redesigned'
     )
 
-    await supabase
-      .from('projects')
-      .update({
-        redesigned_image_url: overlayUpload.url,
-        redesigned_cloudinary_public_id: overlayUpload.public_id,
-      })
-      .eq('id', projectId)
+    console.log('[ai-design] Overlay uploaded:', overlayUpload.url)
 
-    let aiDesignedUrl: string | null = null
+    // Try to upload the AI-polished image (if Azure OpenAI returned one)
+    let aiDesignedUrl: string = overlayUpload.url // Default: use overlay
+    let aiDesignedPublicId: string = overlayUpload.public_id
 
     if (result.ai_polished_image_base64) {
       const polishedBuffer = Buffer.from(
@@ -86,14 +83,41 @@ export async function POST(request: Request) {
         polishedBuffer,
         'renovation/ai-designed'
       )
-
-      await supabase
-        .from('projects')
-        .update({ ai_designed_image_url: polishedUpload.url })
-        .eq('id', projectId)
-
       aiDesignedUrl = polishedUpload.url
+      aiDesignedPublicId = polishedUpload.public_id
+      console.log('[ai-design] AI polished uploaded:', polishedUpload.url)
+    } else {
+      console.log('[ai-design] No AI polish result — using overlay as ai_designed_image_url')
     }
+
+    // Always save both URLs to the database
+    const updateFields = {
+      redesigned_image_url: overlayUpload.url,
+      redesigned_cloudinary_public_id: overlayUpload.public_id,
+      ai_designed_image_url: aiDesignedUrl,
+      status: 'designed',
+    }
+
+    console.log('[ai-design] Saving to DB:', {
+      projectId,
+      redesigned_image_url: updateFields.redesigned_image_url,
+      ai_designed_image_url: updateFields.ai_designed_image_url,
+    })
+
+    const { error: updateError } = await supabase
+      .from('projects')
+      .update(updateFields)
+      .eq('id', projectId)
+
+    if (updateError) {
+      console.error('[ai-design] DB update failed:', updateError)
+      return NextResponse.json(
+        { error: `Failed to save images: ${updateError.message}` },
+        { status: 500 }
+      )
+    }
+
+    console.log('[ai-design] DB update successful')
 
     return NextResponse.json({
       redesigned_image_url: overlayUpload.url,

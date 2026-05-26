@@ -85,7 +85,11 @@ export default async function DashboardPage() {
                       {project.original_image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={project.original_image_url}
+                          src={
+                            project.status === 'completed'
+                              ? project.ai_designed_image_url || project.redesigned_image_url || project.original_image_url
+                              : project.original_image_url
+                          }
                           alt={project.title}
                           className="h-full w-full object-cover transition-transform group-hover:scale-105"
                         />

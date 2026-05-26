@@ -62,7 +62,11 @@ export default function ProjectPage() {
 
       if (p.segmentation_data) setSegments(p.segmentation_data)
       if (p.redesigned_image_url) setVisualization(p.redesigned_image_url)
-      if (p.ai_designed_image_url) setAiDesign(p.ai_designed_image_url)
+      if (p.ai_designed_image_url) {
+        setAiDesign(p.ai_designed_image_url)
+      } else if (p.redesigned_image_url) {
+        setAiDesign(p.redesigned_image_url)
+      }
       if (p.cost_data) setCostData(p.cost_data)
       if (p.report_storage_path) setReportUrl(p.report_storage_path)
 
