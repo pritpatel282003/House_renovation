@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useProjectStore } from '@/store/projectStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, Download, FileText, CheckCircle2 } from 'lucide-react'
+import { Loader2, Download, FileText, CheckCircle2, LayoutDashboard } from 'lucide-react'
 
 export default function ReportDownloader() {
   const {
@@ -13,6 +15,9 @@ export default function ReportDownloader() {
     isLoading,
     setLoading,
   } = useProjectStore()
+
+  const [downloading, setDownloading] = useState(false)
+  const router = useRouter()
 
   const handleGenerate = async () => {
     if (!projectId) return
@@ -33,9 +38,29 @@ export default function ReportDownloader() {
     }
   }
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!projectId) return
-    window.open(`/api/report/download?projectId=${projectId}`, '_blank')
+    setDownloading(true)
+    try {
+      const res = await fetch(`/api/report/download?projectId=${projectId}`)
+      if (!res.ok) throw new Error('Download failed')
+      const { url } = await res.json()
+      const pdfRes = await fetch(url)
+      if (!pdfRes.ok) throw new Error('PDF fetch failed')
+      const blob = await pdfRes.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = `renovation-report-${projectId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(blobUrl)
+    } catch (err) {
+      console.error('Download failed:', err)
+    } finally {
+      setDownloading(false)
+    }
   }
 
   if (isLoading) {
@@ -44,7 +69,7 @@ export default function ReportDownloader() {
         <Loader2 className="h-10 w-10 animate-spin text-[#C4622D]" />
         <p className="text-[#1C2B3A]/60 font-medium">Building your report...</p>
         <p className="text-xs text-[#1C2B3A]/40">
-          Compiling images, costs, and material details into a PDF
+          Compiling material details and cost breakdown into a PDF
         </p>
       </div>
     )
@@ -68,11 +93,16 @@ export default function ReportDownloader() {
         <div className="flex gap-3">
           <Button
             onClick={handleDownload}
+            disabled={downloading}
             className="bg-[#C4622D] hover:bg-[#a85225] gap-2 px-8"
             size="lg"
           >
-            <Download className="h-5 w-5" />
-            Download PDF
+            {downloading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Download className="h-5 w-5" />
+            )}
+            {downloading ? 'Downloading...' : 'Download PDF'}
           </Button>
           <Button
             variant="outline"
@@ -82,6 +112,14 @@ export default function ReportDownloader() {
             Regenerate
           </Button>
         </div>
+        <Button
+          variant="outline"
+          onClick={() => router.push('/dashboard')}
+          className="gap-2 mt-2"
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          Back to Dashboard
+        </Button>
       </div>
     )
   }
@@ -98,7 +136,7 @@ export default function ReportDownloader() {
               Generate Your Report
             </h3>
             <p className="text-sm text-[#1C2B3A]/60">
-              Create a detailed PDF with images, material specifications, and complete cost breakdown.
+              Create a detailed PDF with material specifications and complete cost breakdown.
             </p>
           </div>
           <Button

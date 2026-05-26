@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, useTransition } from 'react'
 import { useProjectStore, saveSegmentsToDb } from '@/store/projectStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Loader2, Check, Trash2, RefreshCw, Move, Info, PenTool, X } from 'lucide-react'
+import { Loader2, Check, Trash2, RefreshCw, Move, Info, PenTool, X, Pencil } from 'lucide-react'
 import type { Segment } from '@/lib/types'
 
 const REGION_COLORS = [
@@ -125,6 +125,7 @@ export default function SegmentationViewer() {
     addSegment,
     removeSegment,
     updateSegmentPolygon,
+    updateSegmentLabel,
     selectRegion,
     setLoading,
     isLoading,
@@ -144,6 +145,11 @@ export default function SegmentationViewer() {
   const [isDrawing, setIsDrawing] = useState(false)
   const [namingRegion, setNamingRegion] = useState(false)
   const [newRegionName, setNewRegionName] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [editingLabel, setEditingLabel] = useState<string | null>(null)
+  const [editNameValue, setEditNameValue] = useState('')
+  const [renameError, setRenameError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -413,6 +419,33 @@ export default function SegmentationViewer() {
     setNewRegionName('')
   }
 
+  const startEditingLabel = (label: string) => {
+    setEditingLabel(label)
+    setEditNameValue(label.replace(/_/g, ' '))
+    setRenameError(null)
+  }
+
+  const confirmLabelEdit = () => {
+    if (!editingLabel) return
+    const success = updateSegmentLabel(editingLabel, editNameValue)
+    if (!success) {
+      setRenameError('Name is empty or already in use')
+      return
+    }
+    if (simplifiedRef.current.has(editingLabel)) {
+      simplifiedRef.current.delete(editingLabel)
+    }
+    setEditingLabel(null)
+    setEditNameValue('')
+    setRenameError(null)
+  }
+
+  const cancelLabelEdit = () => {
+    setEditingLabel(null)
+    setEditNameValue('')
+    setRenameError(null)
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -666,7 +699,11 @@ export default function SegmentationViewer() {
             {segments.length === 0 ? (
               <p className="text-sm text-[#1C2B3A]/50">No regions detected yet.</p>
             ) : (
-              segments.map((segment, i) => (
+              <>
+                {renameError && (
+                  <p className="text-xs text-red-500">{renameError}</p>
+                )}
+                {segments.map((segment, i) => (
                 <div
                   key={segment.label}
                   className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors ${
@@ -675,39 +712,90 @@ export default function SegmentationViewer() {
                       : 'hover:bg-[#1C2B3A]/5'
                   }`}
                 >
-                  <button
-                    onClick={() => {
-                      selectRegion(segment.label)
-                      if (editMode) ensureSimplified(segment.label)
+                  <div
+                    className="h-3 w-3 rounded-full flex-shrink-0"
+                    style={{
+                      backgroundColor:
+                        REGION_BORDERS[i % REGION_BORDERS.length],
                     }}
-                    className="flex items-center gap-3 flex-1 text-left"
-                  >
-                    <div
-                      className="h-3 w-3 rounded-full flex-shrink-0"
-                      style={{
-                        backgroundColor:
-                          REGION_BORDERS[i % REGION_BORDERS.length],
+                  />
+                  {editingLabel === segment.label ? (
+                    <div className="flex flex-1 items-center gap-1.5 min-w-0">
+                      <Input
+                        autoFocus
+                        value={editNameValue}
+                        onChange={(e) => {
+                          setEditNameValue(e.target.value)
+                          setRenameError(null)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') confirmLabelEdit()
+                          if (e.key === 'Escape') cancelLabelEdit()
+                        }}
+                        className="h-7 text-sm flex-1 min-w-0"
+                        placeholder="Region name"
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={confirmLabelEdit}
+                        disabled={!editNameValue.trim()}
+                        className="h-7 w-7 p-0"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={cancelLabelEdit}
+                        className="h-7 w-7 p-0"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          selectRegion(segment.label)
+                          if (editMode) ensureSimplified(segment.label)
+                        }}
+                        className="flex items-center gap-2 flex-1 text-left min-w-0"
+                      >
+                        <span className="flex-1 font-medium capitalize truncate">
+                          {segment.label.replace(/_/g, ' ')}
+                        </span>
+                        <Badge variant="secondary" className="text-xs flex-shrink-0">
+                          {Math.round(segment.confidence * 100)}%
+                        </Badge>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEditingLabel(segment.label)
+                        }}
+                        className="h-7 w-7 rounded-md flex items-center justify-center text-[#1C2B3A]/30 hover:text-[#C4622D] hover:bg-[#C4622D]/10 transition-colors"
+                        title={`Rename ${segment.label}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                  {editingLabel !== segment.label && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeSegment(segment.label)
                       }}
-                    />
-                    <span className="flex-1 font-medium capitalize">
-                      {segment.label.replace(/_/g, ' ')}
-                    </span>
-                    <Badge variant="secondary" className="text-xs">
-                      {Math.round(segment.confidence * 100)}%
-                    </Badge>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeSegment(segment.label)
-                    }}
-                    className="h-7 w-7 rounded-md flex items-center justify-center text-[#1C2B3A]/30 hover:text-red-500 hover:bg-red-50 transition-colors"
-                    title={`Remove ${segment.label}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                      className="h-7 w-7 rounded-md flex items-center justify-center text-[#1C2B3A]/30 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      title={`Remove ${segment.label}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
-              ))
+              ))}
+              </>
             )}
           </CardContent>
         </Card>
@@ -715,13 +803,22 @@ export default function SegmentationViewer() {
         {segments.length > 0 && (
           <Button
             onClick={async () => {
+              setIsSaving(true)
+              await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
               await saveSegmentsToDb()
-              nextStep()
+              startTransition(() => {
+                nextStep()
+              })
             }}
+            disabled={isSaving || isPending}
             className="w-full bg-[#C4622D] hover:bg-[#a85225]"
           >
-            <Check className="mr-2 h-4 w-4" />
-            Confirm Regions — Choose Materials
+            {isSaving || isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="mr-2 h-4 w-4" />
+            )}
+            {isSaving || isPending ? 'Saving...' : 'Confirm Regions — Choose Materials'}
           </Button>
         )}
       </div>

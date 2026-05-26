@@ -101,6 +101,8 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('AI design error:', error)
-    return NextResponse.json({ error: 'AI design failed' }, { status: 500 })
+    const message =
+      error instanceof Error ? error.message : 'AI design failed'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

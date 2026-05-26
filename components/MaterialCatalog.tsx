@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Check, Loader2, ImageIcon } from 'lucide-react'
+import RegionPreview from '@/components/RegionPreview'
 import type { Material } from '@/lib/types'
 
 const categories = [
@@ -24,6 +25,7 @@ const categories = [
 export default function MaterialCatalog() {
   const {
     projectId,
+    originalImageUrl,
     segments,
     selectedRegion,
     materialAssignments,
@@ -40,6 +42,14 @@ export default function MaterialCatalog() {
   useEffect(() => {
     fetchMaterials()
   }, [])
+
+  useEffect(() => {
+    if (selectedRegion || segments.length === 0) return
+    const firstUnassigned = segments.find((s) => !materialAssignments[s.label])
+    selectRegion(firstUnassigned?.label ?? segments[0].label)
+  }, [selectedRegion, segments, materialAssignments, selectRegion])
+
+  const selectedSegment = segments.find((s) => s.label === selectedRegion)
 
   const fetchMaterials = async () => {
     setLoading(true)
@@ -124,6 +134,13 @@ export default function MaterialCatalog() {
           )
         })}
       </div>
+
+      {selectedSegment && originalImageUrl && (
+        <RegionPreview
+          imageUrl={originalImageUrl}
+          segment={selectedSegment}
+        />
+      )}
 
       <div className="flex items-center justify-between">
         <Badge variant="secondary" className="text-sm">

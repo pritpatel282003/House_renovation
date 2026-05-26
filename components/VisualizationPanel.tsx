@@ -18,6 +18,7 @@ function BeforeAfterSlider({
 }) {
   const [sliderPos, setSliderPos] = useState(50)
   const [dragging, setDragging] = useState(false)
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -38,29 +39,49 @@ function BeforeAfterSlider({
     <div
       ref={containerRef}
       className="relative rounded-2xl overflow-hidden border border-[#1C2B3A]/10 cursor-col-resize select-none"
+      style={aspectRatio ? { aspectRatio: `${aspectRatio}` } : undefined}
       onMouseMove={handleMouseMove}
       onMouseUp={() => setDragging(false)}
       onMouseLeave={() => setDragging(false)}
       onTouchMove={handleTouchMove}
       onTouchEnd={() => setDragging(false)}
     >
+      {/* Before (original) image — used to determine container aspect ratio */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={afterUrl}
-        alt={afterLabel}
-        className="w-full h-auto block"
+        src={beforeUrl}
+        alt={beforeLabel}
+        className="absolute inset-0 w-full h-full object-contain"
         draggable={false}
+        onLoad={(e) => {
+          const img = e.currentTarget
+          if (img.naturalWidth && img.naturalHeight) {
+            setAspectRatio(img.naturalWidth / img.naturalHeight)
+          }
+        }}
       />
 
+      {/* After (AI redesign) image — fills the same space */}
+      <div className="absolute inset-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={afterUrl}
+          alt={afterLabel}
+          className="w-full h-full object-contain"
+          draggable={false}
+        />
+      </div>
+
+      {/* Before image clipped from the left based on slider position */}
       <div
-        className="absolute inset-0 overflow-hidden"
+        className="absolute inset-0"
         style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={beforeUrl}
           alt={beforeLabel}
-          className="w-full h-auto block"
+          className="w-full h-full object-contain"
           draggable={false}
         />
       </div>

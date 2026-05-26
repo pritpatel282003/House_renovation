@@ -76,6 +76,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ redesigned_image_url: url })
   } catch (error) {
     console.error('Visualize error:', error)
-    return NextResponse.json({ error: 'Visualization failed' }, { status: 500 })
+    const message =
+      error instanceof Error ? error.message : 'Visualization failed'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -24,6 +24,7 @@ interface ProjectActions {
   addSegment: (segment: Segment) => void
   removeSegment: (label: string) => void
   updateSegmentPolygon: (label: string, polygon: [number, number][]) => void
+  updateSegmentLabel: (oldLabel: string, newLabel: string) => boolean
   selectRegion: (label: string | null) => void
   assignMaterial: (regionLabel: string, material: Material) => void
   setMaterialAssignments: (assignments: Record<string, Material>) => void
@@ -84,6 +85,32 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set) => ({
       ),
     })),
 
+  updateSegmentLabel: (oldLabel, newLabel) => {
+    const normalized = newLabel.trim().toLowerCase().replace(/\s+/g, '_')
+    if (!normalized || normalized === oldLabel) return false
+
+    const { segments } = useProjectStore.getState()
+    if (segments.some((s) => s.label === normalized)) return false
+
+    set((state) => {
+      const materialAssignments = { ...state.materialAssignments }
+      if (materialAssignments[oldLabel]) {
+        materialAssignments[normalized] = materialAssignments[oldLabel]
+        delete materialAssignments[oldLabel]
+      }
+
+      return {
+        segments: state.segments.map((s) =>
+          s.label === oldLabel ? { ...s, label: normalized } : s
+        ),
+        selectedRegion:
+          state.selectedRegion === oldLabel ? normalized : state.selectedRegion,
+        materialAssignments,
+      }
+    })
+    return true
+  },
+
   selectRegion: (label) => set({ selectedRegion: label }),
 
   assignMaterial: (regionLabel, material) =>
@@ -123,10 +150,13 @@ export async function saveSegmentsToDb(): Promise<boolean> {
   const { projectId, segments } = useProjectStore.getState()
   if (!projectId) return false
   try {
+    const body = await new Promise<string>((resolve) => {
+      setTimeout(() => resolve(JSON.stringify({ projectId, segments })), 0)
+    })
     const res = await fetch('/api/save-segments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectId, segments }),
+      body,
     })
     return res.ok
   } catch {

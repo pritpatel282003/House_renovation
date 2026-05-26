@@ -29,13 +29,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const reportPayload = {
+      ...project,
+      redesigned_image_url: project.ai_designed_image_url || project.redesigned_image_url,
+    }
+
     const pyRes = await fetch(`${process.env.PYTHON_SERVICE_URL}/report`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-service-secret': process.env.PYTHON_SERVICE_SECRET!,
       },
-      body: JSON.stringify(project),
+      body: JSON.stringify(reportPayload),
     })
 
     if (!pyRes.ok) {
