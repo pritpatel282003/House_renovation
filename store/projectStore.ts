@@ -149,17 +149,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set) => ({
 export async function saveSegmentsToDb(): Promise<boolean> {
   const { projectId, segments } = useProjectStore.getState()
   if (!projectId) return false
-  try {
-    const body = await new Promise<string>((resolve) => {
-      setTimeout(() => resolve(JSON.stringify({ projectId, segments })), 0)
-    })
-    const res = await fetch('/api/save-segments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-    })
-    return res.ok
-  } catch {
-    return false
-  }
+  const { saveSegments } = await import('@/lib/api')
+  return saveSegments(projectId, segments)
 }

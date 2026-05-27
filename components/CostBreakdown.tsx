@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Loader2, ArrowRight, IndianRupee, Ruler } from 'lucide-react'
+import { runEstimate, updateRates } from '@/lib/api'
 import type { CostBreakdown as CostBreakdownType } from '@/lib/types'
 
 function formatINR(amount: number): string {
@@ -53,17 +54,10 @@ export default function CostBreakdown() {
     if (!projectId) return
     setLoading(true)
     try {
-      const res = await fetch('/api/estimate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId,
-          ...(pixelsPerFoot != null && { pixels_per_foot: pixelsPerFoot }),
-        }),
+      const costResult = await runEstimate(projectId, {
+        ...(pixelsPerFoot != null && { pixels_per_foot: pixelsPerFoot }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setCostData(data.cost_data)
+      setCostData(costResult)
     } catch (err) {
       console.error('Estimation failed:', err)
     } finally {
@@ -88,14 +82,8 @@ export default function CostBreakdown() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/estimate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, wastage_percent: numValue }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setCostData(data.cost_data)
+      const costResult = await runEstimate(projectId, { wastage_percent: numValue })
+      setCostData(costResult)
     } catch (err) {
       console.error('Wastage update failed:', err)
     } finally {
@@ -123,15 +111,8 @@ export default function CostBreakdown() {
         [field]: numValue,
       }
 
-      const res = await fetch('/api/estimate/rates', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, overrides }),
-      })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setCostData(data.cost_data)
+      const costResult = await updateRates(projectId, overrides)
+      setCostData(costResult)
     } catch (err) {
       console.error('Rate update failed:', err)
     } finally {

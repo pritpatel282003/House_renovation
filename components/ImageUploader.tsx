@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Upload, X, ImageIcon, Info, Home } from 'lucide-react'
+import { uploadImage } from '@/lib/api'
 
 export default function ImageUploader() {
   const [file, setFile] = useState<File | null>(null)
@@ -58,12 +59,7 @@ export default function ImageUploader() {
     setWarnings([])
 
     try {
-      const formData = new FormData()
-      formData.append('image', file)
-      if (title) formData.append('title', title)
-
-      const response = await fetch('/api/upload', { method: 'POST', body: formData })
-      const data = await response.json()
+      const data = await uploadImage(file, title || undefined)
 
       if (!data.success) {
         setMsg(data.msg)

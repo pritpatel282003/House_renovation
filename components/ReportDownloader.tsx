@@ -14,6 +14,7 @@ import {
   Sparkles,
   ImageIcon,
 } from 'lucide-react'
+import { generateReport, downloadReport } from '@/lib/api'
 
 export default function ReportDownloader() {
   const {
@@ -37,14 +38,8 @@ export default function ReportDownloader() {
     if (!projectId) return
     setLoading(true)
     try {
-      const res = await fetch('/api/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setReportUrl(data.reportUrl)
+      const url = await generateReport(projectId)
+      setReportUrl(url)
     } catch (err) {
       console.error('Report generation failed:', err)
     } finally {
@@ -56,12 +51,7 @@ export default function ReportDownloader() {
     if (!projectId) return
     setDownloading(true)
     try {
-      const res = await fetch(`/api/report/download?projectId=${projectId}`)
-      if (!res.ok) throw new Error('Download failed')
-      const { url } = await res.json()
-      const pdfRes = await fetch(url)
-      if (!pdfRes.ok) throw new Error('PDF fetch failed')
-      const blob = await pdfRes.blob()
+      const blob = await downloadReport(projectId)
       const blobUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = blobUrl

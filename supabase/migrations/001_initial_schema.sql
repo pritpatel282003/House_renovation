@@ -24,6 +24,7 @@ CREATE TABLE projects (
   original_cloudinary_public_id TEXT,
   redesigned_image_url TEXT,
   redesigned_cloudinary_public_id TEXT,
+  ai_designed_image_url TEXT,
   segmentation_data JSONB,
   material_assignments JSONB DEFAULT '{}',
   area_data JSONB,

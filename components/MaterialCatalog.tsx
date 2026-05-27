@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Check, Loader2, ImageIcon } from 'lucide-react'
 import RegionPreview from '@/components/RegionPreview'
+import { fetchMaterials as fetchMaterialsApi, assignMaterials } from '@/lib/api'
 import type { Material } from '@/lib/types'
 
 const categories = [
@@ -54,9 +55,8 @@ export default function MaterialCatalog() {
   const fetchMaterials = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/materials')
-      const data = await res.json()
-      if (res.ok) setMaterials(data.materials)
+      const data = await fetchMaterialsApi()
+      setMaterials(data)
     } catch (err) {
       console.error('Failed to fetch materials:', err)
     } finally {
@@ -93,13 +93,7 @@ export default function MaterialCatalog() {
         assignments[label] = material.id
       }
 
-      const res = await fetch('/api/assign-materials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, assignments }),
-      })
-
-      if (!res.ok) throw new Error('Failed to save')
+      await assignMaterials(projectId, assignments)
       nextStep()
     } catch (err) {
       console.error('Save failed:', err)

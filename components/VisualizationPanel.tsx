@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { useProjectStore, saveSegmentsToDb } from '@/store/projectStore'
+import { useProjectStore } from '@/store/projectStore'
 import { Button } from '@/components/ui/button'
 import { Loader2, RefreshCw, ArrowRight, Sparkles } from 'lucide-react'
+import { saveSegments, generateAiDesign } from '@/lib/api'
 
 function BeforeAfterSlider({
   beforeUrl,
@@ -132,14 +133,9 @@ export default function VisualizationPanel() {
     setElapsedSecs(0)
     const timer = setInterval(() => setElapsedSecs((s) => s + 1), 1000)
     try {
-      await saveSegmentsToDb()
-      const res = await fetch('/api/ai-design', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const { segments } = useProjectStore.getState()
+      await saveSegments(projectId, segments)
+      const data = await generateAiDesign(projectId)
       if (data.redesigned_image_url) {
         setVisualization(data.redesigned_image_url)
       }
@@ -160,13 +156,7 @@ export default function VisualizationPanel() {
     setElapsedSecs(0)
     const timer = setInterval(() => setElapsedSecs((s) => s + 1), 1000)
     try {
-      const res = await fetch('/api/ai-design', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const data = await generateAiDesign(projectId)
       if (data.redesigned_image_url) {
         setVisualization(data.redesigned_image_url)
       }
